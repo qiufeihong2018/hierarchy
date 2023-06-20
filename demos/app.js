@@ -1,39 +1,41 @@
-process.env.DEBUG = 'app:*';
-const debug = require('debug')('app:demos');
-const commander = require('commander');
-const connect = require('connect');
-const getPort = require('get-port');
-const http = require('http');
-const open = require('open');
-const serveStatic = require('serve-static');
-const parseurl = require('parseurl');
-const assign = require('lodash').assign;
-const path = require('path');
+process.env.DEBUG = "app:*";
+const debug = require("debug")("app:demos");
+const commander = require("commander");
+const connect = require("connect");
+const getPort = require("get-port");
+const http = require("http");
+const open = require("open");
+const serveStatic = require("serve-static");
+const parseurl = require("parseurl");
+const assign = require("lodash").assign;
+const path = require("path");
 const resolve = path.resolve;
 const extname = path.extname;
 const basename = path.basename;
 const join = path.join;
-const fs = require('fs');
+const fs = require("fs");
 const statSync = fs.statSync;
 const lstatSync = fs.lstatSync;
 const readdirSync = fs.readdirSync;
 const readFileSync = fs.readFileSync;
 const mkdirSync = fs.mkdirSync;
-const nunjucks = require('nunjucks');
+const nunjucks = require("nunjucks");
 const renderString = nunjucks.renderString;
-const pkg = require('../package.json');
+const pkg = require("../package.json");
 
 function isFile(source) {
   return lstatSync(source).isFile();
 }
 
 function getFiles(source) {
-  return readdirSync(source).map(function(name) {
-    return join(source, name);
-  }).filter(isFile);
+  return readdirSync(source)
+    .map(function (name) {
+      return join(source, name);
+    })
+    .filter(isFile);
 }
 
-const screenshotsPath = join(process.cwd(), './demos/assets/screenshots');
+const screenshotsPath = join(process.cwd(), "./demos/assets/screenshots");
 try {
   statSync(screenshotsPath);
 } catch (e) {
@@ -42,34 +44,36 @@ try {
 
 commander
   .version(pkg.version)
-  .option('-w, --web')
-  .option('-p, --port <port>', 'specify a port number to run on', parseInt)
+  .option("-w, --web")
+  .option("-p, --port <port>", "specify a port number to run on", parseInt)
   .parse(process.argv);
 
 function startService(port) {
   const server = connect();
   server.use((req, res, next) => {
-    if (req.method === 'GET') {
+    if (req.method === "GET") {
       const pathname = parseurl(req).pathname;
-      if (pathname === '/demos/index.html') {
+      if (pathname === "/demos/index.html") {
         const demoFiles = getFiles(__dirname)
-          .filter(filename => {
-            return extname(filename) === '.html';
+          .filter((filename) => {
+            return extname(filename) === ".html";
           })
-          .map(filename => {
-            const bn = basename(filename, '.html');
+          .map((filename) => {
+            const bn = basename(filename, ".html");
             const file = {
               screenshot: `/demos/assets/screenshots/${bn}.png`,
               basename: bn,
               content: readFileSync(filename),
-              filename
+              filename,
             };
             return file;
           });
-        const template = readFileSync(join(__dirname, './index.njk'), 'utf8');
-        res.end(renderString(template, {
-          demoFiles
-        }));
+        const template = readFileSync(join(__dirname, "./index.njk"), "utf8");
+        res.end(
+          renderString(template, {
+            demoFiles,
+          })
+        );
       } else {
         next();
       }
@@ -84,51 +88,72 @@ function startService(port) {
   debug(`server started, demos available! ${url}`);
 
   if (commander.web) {
-    debug('running on web!');
+    debug("running on web!");
     open(url);
-  } else {
-    debug('running on electron!');
-    const app = require('electron').app;
-    const BrowserWindow = require('electron').BrowserWindow;
-    const watch = require('torchjs/lib/watch');
-    const windowBoundsConfig = require('torchjs/lib/windowBoundsConfig')(
-      resolve(app.getPath('userData'), './hierarchy-config.json')
-    );
+    // } else {
+    //   //     electron下载依赖报错：
+    //   //     error /Users/dawei/hierarchy/node_modules/nightmare/node_modules/electron: Command failed.
+    //   // Exit code: 1
+    //   // Command: node install.js
+    //   // Arguments:
+    //   // Directory: /Users/dawei/hierarchy/node_modules/nightmare/node_modules/electron
+    //   // Output:
+    //   // Downloading electron-v1.8.8-darwin-x64.zip
+    //   // Error: 140704441964096:error:1408F119:SSL routines:ssl3_get_record:decryption failed or bad record mac:../deps/openssl/openssl/ssl/record/ssl3_record.c:677:
 
-    let win;
-    app.once('ready', () => {
-      win = new BrowserWindow(assign({
-        // transparent: true
-        webPreferences: {
-          nodeIntegration: false
-        }
-      }, windowBoundsConfig.get('demos')));
-      win.loadURL(url);
-      win.openDevTools();
+    //   // /Users/dawei/hierarchy/node_modules/nightmare/node_modules/electron/install.js:47
+    //   //   throw err
+    //   //   ^
 
-      win.on('close', () => {
-        windowBoundsConfig.set('demos', win.getBounds());
-      });
-      win.on('closed', () => {
-        win = null;
-      });
-      watch([
-        'demos/**/*.*',
-        'src/**/*.*'
-      ], () => {
-        win.webContents.reloadIgnoringCache();
-      });
-    });
-    app.on('window-all-closed', () => {
-      app.quit();
-    });
+    //   // [Error: 140704441964096:error:1408F119:SSL routines:ssl3_get_record:decryption failed or bad record mac:../deps/openssl/openssl/ssl/record/ssl3_record.c:677:
+    //   // ] {
+    //   //   library: 'SSL routines',
+    //   //   function: 'ssl3_get_record',
+    //   // 目前先使用web调试
+    //   debug("running on electron!");
+    //   const app = require("electron").app;
+    //   const BrowserWindow = require("electron").BrowserWindow;
+    //   const watch = require("torchjs/lib/watch");
+    //   const windowBoundsConfig = require("torchjs/lib/windowBoundsConfig")(
+    //     resolve(app.getPath("userData"), "./hierarchy-config.json")
+    //   );
+
+    //   let win;
+    //   app.once("ready", () => {
+    //     win = new BrowserWindow(
+    //       assign(
+    //         {
+    //           // transparent: true
+    //           webPreferences: {
+    //             nodeIntegration: false,
+    //           },
+    //         },
+    //         windowBoundsConfig.get("demos")
+    //       )
+    //     );
+    //     win.loadURL(url);
+    //     win.openDevTools();
+
+    //     win.on("close", () => {
+    //       windowBoundsConfig.set("demos", win.getBounds());
+    //     });
+    //     win.on("closed", () => {
+    //       win = null;
+    //     });
+    //     watch(["demos/**/*.*", "src/**/*.*"], () => {
+    //       win.webContents.reloadIgnoringCache();
+    //     });
+    //   });
+    //   app.on("window-all-closed", () => {
+    //     app.quit();
+    //   });
   }
 }
 
 if (commander.port) {
   startService(commander.port);
 } else {
-  getPort().then(port => {
+  getPort().then((port) => {
     startService(port);
   });
 }
